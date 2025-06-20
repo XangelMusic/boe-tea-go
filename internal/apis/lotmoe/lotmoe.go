@@ -42,7 +42,7 @@ type getFilesResponse struct {
 }
 
 func NewClient(username, password string) (*Client, error) {
-	httpClient := &http.Client{}
+	httpClient := http.DefaultClient
 
 	form := url.Values{}
 	form.Add("username", username)

@@ -57,7 +57,7 @@ type fxTwitterResponse struct {
 func newFxTwitter() artworks.Provider {
 	return &fxTwitter{
 		twitterMatcher: twitterMatcher{},
-		client:         &http.Client{},
+		client:         http.DefaultClient,
 	}
 }
 

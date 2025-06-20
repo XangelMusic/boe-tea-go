@@ -92,9 +92,7 @@ func (ec *EmbedCache) makeKey(channelID, messageID string) string {
 }
 
 func (ec *EmbedCache) Get(channelID, messageID string) (*CachedPost, bool) {
-	key := ec.makeKey(
-		channelID, messageID,
-	)
+	key := ec.makeKey(channelID, messageID)
 
 	if embed, ok := ec.cache.Get(key); ok {
 		if embed, ok := embed.(*CachedPost); ok {

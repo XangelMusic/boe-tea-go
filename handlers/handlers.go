@@ -35,7 +35,7 @@ func RegisterHandlers(b *bot.Bot) {
 	b.AddHandler(OnChannelDelete(b))
 	b.AddHandler(OnReactionAdd(b))
 	b.AddHandler(OnReactionRemove(b))
-	b.AddHandler(OnMessageRemove(b))
+	b.AddHandler(OnMessageDelete(b))
 }
 
 // PrefixResolver returns an array of guild's prefixes and bot mentions.
@@ -163,37 +163,38 @@ func OnChannelDelete(b *bot.Bot) func(*discordgo.Session, *discordgo.ChannelDele
 	}
 }
 
-func OnMessageRemove(b *bot.Bot) func(*discordgo.Session, *discordgo.MessageDelete) {
+func OnMessageDelete(b *bot.Bot) func(*discordgo.Session, *discordgo.MessageDelete) {
 	return func(s *discordgo.Session, m *discordgo.MessageDelete) {
 		log := b.Log.With("channel_id", m.ChannelID, "parent_id", m.ID)
-		msg, ok := b.EmbedCache.Get(
-			m.ChannelID, m.ID,
-		)
 
+		urls := xurls.Strict().FindAllString(m.Content, -1)
+		if len(urls) != 0 {
+			for _, url := range urls {
+				log.With("user_id", m.Author.ID, "message_id", m.ID).Info("removing a repost")
+
+				artworkID, _ := b.Match(url)
+				if err := b.RepostDetector.Delete(b.Context, m.ChannelID, artworkID); err != nil {
+					if !errors.Is(err, repost.ErrNotFound) {
+						log.With("error", err).Warn("failed to remove repost")
+					}
+				}
+			}
+		}
+
+		msg, ok := b.EmbedCache.Get(m.ChannelID, m.ID)
 		if !ok {
 			return
 		}
 
-		b.EmbedCache.Remove(
-			m.ChannelID, m.ID,
-		)
+		b.EmbedCache.Remove(m.ChannelID, m.ID)
 
 		if msg.IsParent {
 			log.With("user_id", msg.AuthorID).Info("removing children messages")
 
 			for _, child := range msg.Children {
-				log.With("user_id", msg.AuthorID, "message_id", child.MessageID).Info("removing a repost")
-				if err := b.RepostDetector.Delete(b.Context, child.ChannelID, child.ArtworkID); err != nil {
-					if !errors.Is(err, repost.ErrNotFound) {
-						log.With("error", err).Warn("failed to remove repost")
-					}
-				}
-
 				log.With("user_id", msg.AuthorID, "message_id", child.MessageID).Info("removing a child message")
 
-				b.EmbedCache.Remove(
-					child.ChannelID, child.MessageID,
-				)
+				b.EmbedCache.Remove(child.ChannelID, child.MessageID)
 
 				if err := s.ChannelMessageDelete(child.ChannelID, child.MessageID); err != nil {
 					log.With("error", err, "message_id", child.MessageID).Warn("failed to delete child message")

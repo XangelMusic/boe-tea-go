@@ -71,7 +71,7 @@ var (
 )
 
 func New() (*API, error) {
-	client := &http.Client{}
+	client := http.DefaultClient
 	return &API{
 		client: client,
 	}, nil

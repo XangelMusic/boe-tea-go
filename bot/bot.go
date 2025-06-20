@@ -96,6 +96,16 @@ func (b *Bot) AddHandler(handler any) {
 	b.ShardManager.AddHandler(handler)
 }
 
+func (b *Bot) Match(url string) (string, artworks.Provider) {
+	for _, provider := range b.ArtworkProviders {
+		if id, ok := provider.Match(url); ok {
+			return id, provider
+		}
+	}
+
+	return "", nil
+}
+
 func (b *Bot) Start(ctx context.Context) error {
 	b.ShardManager.AddHandler(b.Router.Handler())
 
