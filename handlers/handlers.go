@@ -35,7 +35,7 @@ func RegisterHandlers(b *bot.Bot) {
 	b.AddHandler(OnChannelDelete(b))
 	b.AddHandler(OnReactionAdd(b))
 	b.AddHandler(OnReactionRemove(b))
-	b.AddHandler(OnMessageRemove(b))
+	b.AddHandler(OnMessageDelete(b))
 }
 
 // PrefixResolver returns an array of guild's prefixes and bot mentions.
@@ -163,7 +163,7 @@ func OnChannelDelete(b *bot.Bot) func(*discordgo.Session, *discordgo.ChannelDele
 	}
 }
 
-func OnMessageRemove(b *bot.Bot) func(*discordgo.Session, *discordgo.MessageDelete) {
+func OnMessageDelete(b *bot.Bot) func(*discordgo.Session, *discordgo.MessageDelete) {
 	return func(s *discordgo.Session, m *discordgo.MessageDelete) {
 		log := b.Log.With("channel_id", m.ChannelID, "parent_id", m.ID)
 		msg, ok := b.EmbedCache.Get(
@@ -179,16 +179,21 @@ func OnMessageRemove(b *bot.Bot) func(*discordgo.Session, *discordgo.MessageDele
 		)
 
 		if msg.IsParent {
-			log.With("user_id", msg.AuthorID).Info("removing children messages")
+			for _, artworkID := range msg.ArtworkIDs {
+				log.With("user_id", msg.AuthorID, "message_id", m.ID).Info("removing a repost")
 
-			for _, child := range msg.Children {
-				log.With("user_id", msg.AuthorID, "message_id", child.MessageID).Info("removing a repost")
-				if err := b.RepostDetector.Delete(b.Context, child.ChannelID, child.ArtworkID); err != nil {
+				err := b.RepostDetector.Delete(b.Context, m.ChannelID, artworkID)
+				if err != nil {
 					if !errors.Is(err, repost.ErrNotFound) {
 						log.With("error", err).Warn("failed to remove repost")
 					}
+				} else {
+					log.With("user_id", msg.AuthorID, m.ID).Info("removed repost")
 				}
+			}
 
+			log.With("user_id", msg.AuthorID).Info("removing children messages")
+			for _, child := range msg.Children {
 				log.With("user_id", msg.AuthorID, "message_id", child.MessageID).Info("removing a child message")
 
 				b.EmbedCache.Remove(

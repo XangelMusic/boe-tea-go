@@ -78,9 +78,10 @@ type MessageInfo struct {
 // Children array is filled for parent messages only and it contains
 // all embeds sent by Boe Tea by posting the message, including crossposted messages.
 type CachedPost struct {
-	AuthorID string
-	IsParent bool
-	Children []*MessageInfo
+	AuthorID   string
+	ArtworkIDs []string
+	IsParent   bool
+	Children   []*MessageInfo
 }
 
 func (ec *EmbedCache) makeKey(channelID, messageID string) string {
@@ -110,10 +111,16 @@ func (ec *EmbedCache) Set(userID, channelID, messageID string, isParent bool, ch
 		channelID, messageID,
 	)
 
+	var artworkIDs []string
+	for _, child := range children {
+		artworkIDs = append(artworkIDs, child.ArtworkID)
+	}
+
 	ec.cache.Set(key, &CachedPost{
-		AuthorID: userID,
-		IsParent: isParent,
-		Children: children,
+		AuthorID:   userID,
+		ArtworkIDs: artworkIDs,
+		IsParent:   isParent,
+		Children:   children,
 	})
 }
 
